@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI, Request
 from fastapi.templating import Jinja2Templates
 from app.database import Base, engine
@@ -8,6 +9,7 @@ from app.routers import auth, sessions, analytics, goals #noqa
 
 
 
+os.makedirs("./data", exist_ok=True)
 # Создаём таблицы в БД
 Base.metadata.create_all(bind=engine)
 
