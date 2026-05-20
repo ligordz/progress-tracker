@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📊 Аналитика — ПРОГРЕСС</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+    <style>
+        :root { --bg: #1a1a2e; --card: #16213e; --text: #eee; --input-bg: #0f3460; --border: #1a1a2e; --accent: #3498db; --success: #27ae60; --danger: #e74c3c; }
+        [data-theme="light"] { --bg: #f4f6f9; --card: #fff; --text: #2c3e50; --input-bg: #fff; --border: #d1d5db; --accent: #2980b9; --success: #219150; --danger: #c0392b; }
+        * { box-sizing: border-box; transition: background 0.3s, color 0.3s; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { text-align: center; margin-bottom: 24px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; background: var(--accent); color: white; }
+        .btn:hover { filter: brightness(1.1); }
+        .btn-secondary { background: #6c757d; }
+
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .stat-card { background: var(--card); padding: 20px; border-radius: 12px; text-align: center; border: 1px solid var(--border); }
+        .stat-value { font-size: 2em; font-weight: bold; color: var(--accent); }
+        .stat-label { color: #888; margin-top: 4px; font-size: 0.9em; }
+
+        .card { background: var(--card); border-radius: 12px; padding: 20px; margin-bottom: 24px; border: 1px solid var(--border); }
+        .card h3 { margin-top: 0; color: var(--accent); border-bottom: 2px solid var(--accent); padding-bottom: 12px; }
+
+        /* Heatmap */
+        .heatmap-container { overflow-x: auto; }
+        .heatmap { display: grid; grid-template-columns: repeat(53, 1fr); gap: 2px; min-width: 800px; }
+        .heatmap-day { width: 14px; height: 14px; border-radius: 2px; background: var(--input-bg); cursor: pointer; transition: 0.2s; }
+        .heatmap-day:hover { transform: scale(1.3); z-index: 2; position: relative; }
+        .heatmap-day[data-count="0"] { background: var(--input-bg); }
+        .heatmap-day[data-count="1"] { background: #2ecc7144; }
+        .heatmap-day[data-count="2"] { background: #2ecc7177; }
+        .heatmap-day[data-count="3"] { background: #2ecc71aa; }
+        .heatmap-day[data-count="4"] { background: #27ae60cc; }
+        .heatmap-day[data-count="5"] { background: #27ae60; }
+        .heatmap-labels { display: flex; justify-content: space-between; margin-top: 8px; font-size: 12px; color: #888; }
+
+        /* Chart containers */
+        .chart-container { position: relative; height: 300px; margin-top: 16px; }
+
+        /* Achievements */
+        .achievements-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+        .achievement { background: var(--input-bg); padding: 16px; border-radius: 8px; border-left: 4px solid var(--accent); opacity: 0.5; }
+        .achievement.unlocked { opacity: 1; border-left-color: var(--success); }
+        .achievement-name { font-weight: 600; margin-bottom: 4px; }
+        .achievement-desc { font-size: 0.9em; color: #888; }
+
+        .tooltip { position: fixed; background: var(--card); padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px; pointer-events: none; z-index: 100; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        .hidden { display: none !important; }
+
+        @media (max-width: 768px) {
+            .heatmap { grid-template-columns: repeat(53, 10px); }
+            .heatmap-day { width: 10px; height: 10px; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>📊 Аналитика ПРОГРЕСС</h1>
+        <div style="display:flex; gap:12px;">
+            <button class="btn btn-secondary" onclick="goBack()">← Назад</button>
+            <button class="btn" onclick="exportData()">📤 Экспорт CSV</button>
+        </div>
+    </div>
+
+    <!-- Статистика -->
+    <div class="stats-grid">
+        <div class="stat-card"><div class="stat-value" id="stat-total-sessions">0</div><div class="stat-label">Всего сессий</div></div>
+        <div class="stat-card"><div class="stat-value" id="stat-total-minutes">0</div><div class="stat-label">Всего минут</div></div>
+        <div class="stat-card"><div class="stat-value" id="stat-current-streak">0</div><div class="stat-label">🔥 Текущая серия</div></div>
+        <div class="stat-card"><div class="stat-value" id="stat-best-streak">0</div><div class="stat-label">🏆 Лучшая серия</div></div>
+    </div>
+
+    <!-- Календарь -->
+    <div class="card">
+        <h3>📅 Активность за год</h3>
+        <div class="heatmap-container">
+            <div class="heatmap" id="heatmap"></div>
+        </div>
+        <div class="heatmap-labels">
+            <span>Янв</span><span>Апр</span><span>Июл</span><span>Окт</span><span>Дек</span>
+        </div>
+        <div style="margin-top:12px; font-size:12px; color:#888;">
+            Меньше → <span style="display:inline-block;width:12px;height:12px;background:var(--input-bg);border-radius:2px;vertical-align:middle;margin:0 4px;"></span>
+            <span style="display:inline-block;width:12px;height:12px;background:#2ecc7144;border-radius:2px;vertical-align:middle;margin:0 2px;"></span>
+            <span style="display:inline-block;width:12px;height:12px;background:#2ecc7177;border-radius:2px;vertical-align:middle;margin:0 2px;"></span>
+            <span style="display:inline-block;width:12px;height:12px;background:#2ecc71aa;border-radius:2px;vertical-align:middle;margin:0 2px;"></span>
+            <span style="display:inline-block;width:12px;height:12px;background:#27ae60cc;border-radius:2px;vertical-align:middle;margin:0 2px;"></span>
+            <span style="display:inline-block;width:12px;height:12px;background:#27ae60;border-radius:2px;vertical-align:middle;margin:0 4px;"></span> → Больше
+        </div>
+    </div>
+
+    <!-- Графики -->
+    <div class="card">
+        <h3>📈 Динамика по неделям</h3>
+        <div class="chart-container"><canvas id="weeklyChart"></canvas></div>
+    </div>
+
+    <div class="card">
+        <h3>🕐 Продуктивность по времени</h3>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+            <div><h4>По дням недели</h4><div class="chart-container"><canvas id="dayChart"></canvas></div></div>
+            <div><h4>По часам</h4><div class="chart-container"><canvas id="hourChart"></canvas></div></div>
+        </div>
+    </div>
+
+    <!-- Достижения -->
+    <div class="card">
+        <h3>🏅 Достижения</h3>
+        <div class="achievements-grid" id="achievements"></div>
+    </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+    const token = localStorage.getItem('progress_token');
+    if (!token) { window.location.href = '/'; }
+
+    async function apiRequest(endpoint, method = 'GET', body = null) {
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const response = await fetch(`/api${endpoint}`, { method, headers, body: body ? JSON.stringify(body) : null });
+        if (!response.ok) { const err = await response.json().catch(() => ({})); throw new Error(err.detail || `Ошибка ${response.status}`); }
+        return response.json();
+    }
+
+    function goBack() { window.location.href = '/'; }
+
+    function formatMinutes(min) { return min >= 60 ? `${Math.floor(min/60)}ч ${min%60}м` : `${min}м`; }
+
+    // Инициализация
+    document.addEventListener('DOMContentLoaded', async () => {
+        await loadAnalytics();
+        setupTooltip();
+    });
+
+    async function loadAnalytics() {
+        try {
+            const [heatmap, weekly, streaks, productivity, achievements, sessions] = await Promise.all([
+                apiRequest('/analytics/heatmap'),
+                apiRequest('/analytics/weekly'),
+                apiRequest('/analytics/streaks'),
+                apiRequest('/analytics/productivity'),
+                apiRequest('/analytics/achievements'),
+                apiRequest('/sessions/?limit=1000')
+            ]);
+
+            // Статистика
+            const totalSessions = sessions.length;
+            const totalMinutes = Math.round(sessions.reduce((sum, s) => sum + s.duration_minutes, 0));
+            document.getElementById('stat-total-sessions').textContent = totalSessions;
+            document.getElementById('stat-total-minutes').textContent = formatMinutes(totalMinutes);
+            document.getElementById('stat-current-streak').textContent = streaks.current;
+            document.getElementById('stat-best-streak').textContent = streaks.best;
+
+            // Heatmap
+            renderHeatmap(heatmap);
+
+            // Графики
+            renderWeeklyChart(weekly);
+            renderDayChart(productivity.by_day);
+            renderHourChart(productivity.by_hour);
+
+            // Достижения
+            renderAchievements(achievements);
+
+        } catch (e) { console.error('Analytics error:', e); }
+    }
+
+    function renderHeatmap(data) {
+        const container = document.getElementById('heatmap');
+        container.innerHTML = '';
+        const year = new Date().getFullYear();
+        const startDate = new Date(year, 0, 1);
+        const totalDays = 365 + (new Date(year, 11, 31).getDay() === 6 ? 1 : 0);
+
+        for (let i = 0; i < 53 * 7; i++) {
+            const date = new Date(startDate);
+            date.setDate(startDate.getDate() + i);
+            if (date.getFullYear() !== year) continue;
+
+            const dateKey = date.toISOString().split('T')[0];
+            const dayData = data[dateKey] || { count: 0, minutes: 0 };
+
+            const el = document.createElement('div');
+            el.className = 'heatmap-day';
+            el.dataset.count = Math.min(dayData.count, 5);
+            el.dataset.date = dateKey;
+            el.dataset.minutes = dayData.minutes;
+            el.dataset.sessions = dayData.count;
+            container.appendChild(el);
+        }
+    }
+
+    function setupTooltip() {
+        const tooltip = document.getElementById('tooltip');
+        document.getElementById('heatmap').addEventListener('mousemove', (e) => {
+            if (e.target.classList.contains('heatmap-day')) {
+                const date = new Date(e.target.dataset.date).toLocaleDateString('ru-RU');
+                const sessions = e.target.dataset.sessions;
+                const minutes = e.target.dataset.minutes;
+                tooltip.innerHTML = `<strong>${date}</strong><br>📚 ${sessions} сессий<br>⏱ ${minutes} мин`;
+                tooltip.style.display = 'block';
+                tooltip.style.left = (e.pageX + 10) + 'px';
+                tooltip.style.top = (e.pageY + 10) + 'px';
+            }
+        });
+        document.getElementById('heatmap').addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+    }
+
+    function renderWeeklyChart(data) {
+        const ctx = document.getElementById('weeklyChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.map(d => d.week),
+                datasets: [{
+                    label: 'Минут обучения',
+                    data: data.map(d => d.minutes),
+                    borderColor: '#3498db',
+                    backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.1)' } }, x: { grid: { display: false } } } }
+        });
+    }
+
+    function renderDayChart(data) {
+        const daysRu = { Monday: 'Пн', Tuesday: 'Вт', Wednesday: 'Ср', Thursday: 'Чт', Friday: 'Пт', Saturday: 'Сб', Sunday: 'Вс' };
+        const ctx = document.getElementById('dayChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(data).map(d => daysRu[d] || d),
+                datasets: [{ label: 'Минут', data: Object.values(data).map(d => d.minutes), backgroundColor: '#27ae60' }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.1)' } }, x: { grid: { display: false } } } }
+        });
+    }
+
+    function renderHourChart(data) {
+        const ctx = document.getElementById('hourChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(data).map(h => `${h}:00`),
+                datasets: [{ label: 'Минут', data: Object.values(data).map(d => d.minutes), backgroundColor: '#9b59b6' }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.1)' } }, x: { grid: { display: false } } } }
+        });
+    }
+
+    function renderAchievements(list) {
+        const container = document.getElementById('achievements');
+        container.innerHTML = list.map(a => `
+            <div class="achievement ${a.unlocked ? 'unlocked' : ''}">
+                <div class="achievement-name">${a.name}</div>
+                <div class="achievement-desc">${a.desc}</div>
+            </div>
+        `).join('') || '<p style="color:#888">Пока нет достижений. Учись и получай их! 🚀</p>';
+    }
+
+    async function exportData() {
+        try {
+            const sessions = await apiRequest('/sessions/?limit=1000');
+            let csv = 'Дата,Начало,Окончание,Длительность(мин),Фокус,Цель,Заметка\n';
+            sessions.forEach(s => {
+                const date = new Date(s.start_time).toLocaleDateString('ru-RU');
+                const start = new Date(s.start_time).toLocaleTimeString('ru-RU');
+                const end = new Date(s.end_time).toLocaleTimeString('ru-RU');
+                csv += `"${date}","${start}","${end}",${s.duration_minutes},${s.focus_score},"${s.goal || ''}","${s.note || ''}"\n`;
+            });
+            const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `progress_export_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+        } catch (e) { alert('Ошибка экспорта: ' + e.message); }
+    }
+</script>
+</body>
+</html>

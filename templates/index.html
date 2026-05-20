@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ПРОГРЕСС — Трекер учебного времени</title>
+    <style>
+        :root {
+            --bg: #1a1a2e; --card: #16213e; --text: #eee;
+            --input-bg: #0f3460; --border: #1a1a2e;
+            --accent: #3498db; --success: #27ae60; --warning: #f39c12; --danger: #e74c3c;
+        }
+        [data-theme="light"] {
+            --bg: #f4f6f9; --card: #ffffff; --text: #2c3e50;
+            --input-bg: #ffffff; --border: #d1d5db;
+            --accent: #2980b9; --success: #219150; --warning: #d35400; --danger: #c0392b;
+        }
+        * { box-sizing: border-box; transition: background 0.3s, color 0.3s; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; min-height: 100vh; }
+        .container { max-width: 900px; margin: 0 auto; }
+        h1 { text-align: center; margin-bottom: 24px; font-size: 2em; }
+
+        .header-controls { display: flex; justify-content: flex-end; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+        .icon-btn { background: var(--card); border: 1px solid var(--border); color: var(--text); padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+        .icon-btn:hover { background: var(--accent); color: white; border-color: var(--accent); }
+        .icon-btn.active { background: var(--accent); color: white; }
+
+        .card { background: var(--card); border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); border: 1px solid var(--border); }
+        .card h3 { margin-top: 0; color: var(--accent); border-bottom: 2px solid var(--accent); padding-bottom: 10px; }
+
+        .goal-item { background: var(--input-bg); padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid var(--accent); }
+        .goal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .goal-title { font-weight: 600; }
+        .goal-toggle { background: none; border: none; color: #888; cursor: pointer; font-size: 18px; padding: 0 4px; }
+        .goal-toggle:hover { color: var(--danger); }
+        .progress-track { width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; margin-top: 4px; }
+        .progress-fill-goal { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); transition: width 0.5s; }
+        .goal-meta { font-size: 0.85em; color: #888; margin-top: 4px; display: flex; justify-content: space-between; }
+
+        input, select, button { width: 100%; padding: 10px; margin: 6px 0; border: 1px solid var(--border); border-radius: 6px; font-size: 15px; background: var(--input-bg); color: var(--text); }
+        button { cursor: pointer; font-weight: 600; transition: 0.2s; }
+        button:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.1); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-primary { background: var(--accent); color: white; border: none; }
+        .btn-success { background: var(--success); color: white; border: none; }
+        .btn-danger { background: var(--danger); color: white; border: none; }
+        .btn-warning { background: var(--warning); color: #000; border: none; }
+        .btn-secondary { background: #6c757d; color: white; border: none; }
+        .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+        .btn-group button { flex: 1; min-width: 70px; }
+
+        .timer-display { font-size: 64px; font-weight: bold; text-align: center; margin: 16px 0; font-variant-numeric: tabular-nums; }
+        .progress-bar { width: 100%; height: 10px; background: var(--input-bg); border-radius: 5px; overflow: hidden; margin: 12px 0; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); transition: width 0.3s; }
+
+        .presets { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+        .preset-btn { flex: 1; min-width: 60px; padding: 8px; background: var(--input-bg); border: 2px solid transparent; color: var(--text); }
+        .preset-btn.active { border-color: var(--accent); background: var(--card); }
+
+        .session-item { background: var(--input-bg); padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid var(--accent); }
+        .session-item:hover { transform: translateX(3px); }
+        .session-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 6px; }
+        .session-meta { color: #888; font-size: 0.9em; }
+        .session-stats { display: flex; gap: 12px; margin-top: 6px; font-size: 0.9em; }
+
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-bottom: 16px; }
+        .stat-card { background: var(--input-bg); padding: 12px; border-radius: 8px; text-align: center; }
+        .stat-value { font-size: 1.8em; font-weight: bold; color: var(--accent); }
+        .stat-label { color: #888; margin-top: 4px; font-size: 0.85em; }
+
+        .flash { padding: 12px; margin: 12px 0; border-radius: 6px; animation: slideIn 0.3s; }
+        .flash.success { background: rgba(39, 174, 96, 0.15); border: 1px solid var(--success); color: var(--success); }
+        .flash.error { background: rgba(231, 76, 60, 0.15); border: 1px solid var(--danger); color: var(--danger); }
+        @keyframes slideIn { from { transform: translateY(-10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        /* Модальное окно */
+        .modal { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; z-index:1000; }
+        .modal.hidden { display:none; }
+        .modal-content { background:var(--card); padding:24px; border-radius:16px; max-width:400px; width:90%; text-align:center; border:1px solid var(--border); }
+        .focus-btn { width:40px; height:40px; border:2px solid var(--border); background:var(--input-bg); color:var(--text); border-radius:8px; font-weight:600; cursor:pointer; transition:0.2s; }
+        .focus-btn:hover, .focus-btn.selected { background:var(--accent); border-color:var(--accent); color:white; transform:scale(1.1); }
+
+        .hidden { display: none !important; }
+        .text-center { text-align: center; }
+        .mb-4 { margin-bottom: 16px; }
+        .mt-4 { margin-top: 16px; }
+
+        @media (max-width: 600px) {
+            .timer-display { font-size: 42px; }
+            .btn-group { flex-direction: column; }
+            .btn-group button { width: 100%; }
+            .header-controls { justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🎓 ПРОГРЕСС</h1>
+
+    <div class="header-controls">
+        <button class="icon-btn" onclick="window.location.href='/analytics'">📊 Аналитика</button>
+        <button class="icon-btn" id="theme-toggle" onclick="toggleTheme()">🌙 Тёмная</button>
+        <button class="icon-btn active" id="sound-toggle" onclick="toggleSound()">🔊 Звук вкл</button>
+    </div>
+
+    <div id="flash"></div>
+
+    <div id="auth-section" class="card">
+        <h3>🔐 Вход в систему</h3>
+        <input type="email" id="email" placeholder="Email">
+        <input type="password" id="password" placeholder="Пароль (мин. 6 символов)">
+        <div class="btn-group">
+            <button class="btn-primary" onclick="login()">Войти</button>
+            <button class="btn-success" onclick="register()">Регистрация</button>
+        </div>
+    </div>
+
+    <div id="app-section" class="hidden">
+        <div class="stats-grid">
+            <div class="stat-card"><div class="stat-value" id="stat-sessions">0</div><div class="stat-label">Сессий сегодня</div></div>
+            <div class="stat-card"><div class="stat-value" id="stat-minutes">0</div><div class="stat-label">Минут сегодня</div></div>
+            <div class="stat-card"><div class="stat-value" id="stat-focus">-</div><div class="stat-label">Средний фокус</div></div>
+        </div>
+
+        <div class="card">
+            <h3>🎯 Активные цели</h3>
+            <div style="display:flex; gap:8px; margin-bottom:12px;">
+                <input type="text" id="goal-title" placeholder="Название цели" style="flex:2;">
+                <input type="number" id="goal-minutes" placeholder="Минут" style="flex:1;" min="1">
+                <button class="btn-primary" onclick="addGoal()" style="width:auto; padding:0 16px;">➕</button>
+            </div>
+            <div id="goals-list"><p style="color:#888; text-align:center;">Загрузка целей...</p></div>
+        </div>
+
+        <div class="card">
+            <h3>⏱️ Pomodoro-таймер</h3>
+            <input type="text" id="goal" placeholder="🎯 Цель сессии">
+            <div class="presets">
+                <button class="preset-btn" onclick="setDuration(15, this)">15м</button>
+                <button class="preset-btn active" onclick="setDuration(25, this)">25м</button>
+                <button class="preset-btn" onclick="setDuration(45, this)">45м</button>
+                <button class="preset-btn" onclick="setDuration(60, this)">60м</button>
+                <button class="preset-btn" onclick="setCustomDuration()">️ Своё</button>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width: 100%"></div></div>
+            <div class="timer-display" id="timer">25:00</div>
+            <div class="btn-group mb-4">
+                <button class="btn-primary" id="start-btn" onclick="startTimer()">▶ Старт</button>
+                <button class="btn-warning" id="pause-btn" onclick="pauseTimer()" disabled>⏸ Пауза</button>
+                <button class="btn-danger" id="reset-btn" onclick="resetTimer()">↺ Сброс</button>
+                <button class="btn-success" id="save-btn" onclick="saveSessionManual()" disabled>💾 Сохранить</button>
+            </div>
+            <input type="text" id="note" placeholder="📝 Заметка (необязательно)">
+        </div>
+
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h3 style="margin:0;">📋 История сессий</h3>
+                <button class="btn-danger btn-sm" onclick="clearHistory()" style="width:auto; padding:6px 12px;">🗑 Очистить</button>
+            </div>
+            <div id="sessions-container"><p class="text-center" style="color:#888">Загрузка...</p></div>
+            <button class="btn-secondary mt-4" onclick="loadSessions()">🔄 Обновить</button>
+        </div>
+
+        <button class="btn-danger" onclick="logout()">🚪 Выйти</button>
+    </div>
+</div>
+
+<!-- Модальное окно оценки концентрации -->
+<div id="focus-modal" class="modal hidden">
+    <div class="modal-content">
+        <h3>🎯 Как прошла сессия?</h3>
+        <p style="color:#888; margin:12px 0 20px;">Оцени свою концентрацию только что завершённой сессии:</p>
+        <div style="display:flex; justify-content:center; gap:8px; margin-bottom:20px;">
+            <button class="focus-btn" data-value="1">1</button>
+            <button class="focus-btn" data-value="2">2</button>
+            <button class="focus-btn" data-value="3">3</button>
+            <button class="focus-btn" data-value="4">4</button>
+            <button class="focus-btn" data-value="5">5</button>
+            <button class="focus-btn" data-value="6">6</button>
+            <button class="focus-btn" data-value="7">7</button>
+            <button class="focus-btn" data-value="8">8</button>
+            <button class="focus-btn" data-value="9">9</button>
+            <button class="focus-btn" data-value="10">10</button>
+        </div>
+        <div style="display:flex; gap:12px;">
+            <button class="btn-secondary" onclick="closeFocusModal()">✕ Отмена</button>
+            <button class="btn-success" id="save-focus-btn" onclick="confirmFocusSave()" disabled>💾 Сохранить сессию</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let token = localStorage.getItem('progress_token');
+    let timerInterval = null;
+    let secondsLeft = 25 * 60;
+    let totalSeconds = 25 * 60;
+    let isRunning = false;
+    let sessionStartTime = null;
+    let pendingSessionData = null;
+    let soundEnabled = localStorage.getItem('sound_enabled') !== 'false';
+    let currentTheme = localStorage.getItem('theme') || 'dark';
+
+    document.documentElement.setAttribute('data-theme', currentTheme);
+    updateThemeButton();
+    updateSoundButton();
+
+    if (token) {
+        document.getElementById('auth-section').classList.add('hidden');
+        document.getElementById('app-section').classList.remove('hidden');
+        loadSessions();
+        loadTodayStats();
+        loadGoals();
+    }
+
+    function showFlash(message, type = 'success') {
+        const flash = document.getElementById('flash');
+        flash.innerHTML = `<div class="flash ${type}">${message}</div>`;
+        setTimeout(() => flash.innerHTML = '', 4000);
+    }
+
+    async function apiRequest(endpoint, method = 'GET', body = null) {
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const response = await fetch(`/api${endpoint}`, { method, headers, body: body ? JSON.stringify(body) : null });
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.detail || `Ошибка ${response.status}`);
+        }
+        return response.json();
+    }
+
+    async function login() {
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        try {
+            const data = await apiRequest('/login', 'POST', { email, password });
+            token = data.access_token;
+            localStorage.setItem('progress_token', token);
+            document.getElementById('auth-section').classList.add('hidden');
+            document.getElementById('app-section').classList.remove('hidden');
+            loadSessions(); loadTodayStats(); loadGoals();
+            showFlash('✅ Вход выполнен!');
+        } catch (e) { showFlash(e.message, 'error'); }
+    }
+
+    async function register() {
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        try {
+            await apiRequest('/register', 'POST', { email, password });
+            showFlash('✅ Регистрация успешна! Теперь войдите.');
+        } catch (e) { showFlash(e.message, 'error'); }
+    }
+
+    function logout() { localStorage.removeItem('progress_token'); token = null; location.reload(); }
+
+    function updateDisplay() {
+        const m = Math.floor(secondsLeft / 60).toString().padStart(2, '0');
+        const s = (secondsLeft % 60).toString().padStart(2, '0');
+        document.getElementById('timer').textContent = `${m}:${s}`;
+        document.getElementById('progress-fill').style.width = `${(secondsLeft / totalSeconds) * 100}%`;
+        document.title = `${m}:${s} — ПРОГРЕСС`;
+    }
+
+    function setDuration(minutes, btn) {
+    pauseTimer();
+    totalSeconds = minutes * 60;
+    secondsLeft = totalSeconds;
+    updateDisplay();
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');  // ← явно передаём кнопку
+    }
+
+    function setCustomDuration() {
+        const minutes = prompt('Введите длительность в минутах:', '30');
+        if (minutes && !isNaN(minutes) && minutes > 0) setDuration(parseInt(minutes));
+    }
+
+    function startTimer() {
+        if (isRunning) return;
+        isRunning = true; sessionStartTime = new Date();
+        document.getElementById('start-btn').disabled = true;
+        document.getElementById('pause-btn').disabled = false;
+        document.getElementById('save-btn').disabled = false;
+        timerInterval = setInterval(() => {
+            secondsLeft--; updateDisplay();
+            if (secondsLeft <= 0) { clearInterval(timerInterval); if(soundEnabled) playSound(); saveSession(); resetTimer(); }
+        }, 1000);
+    }
+
+    function pauseTimer() { clearInterval(timerInterval); isRunning = false; document.getElementById('start-btn').disabled = false; document.getElementById('pause-btn').disabled = true; }
+    function resetTimer() { pauseTimer(); secondsLeft = totalSeconds; sessionStartTime = null; updateDisplay(); document.getElementById('save-btn').disabled = true; document.title = 'ПРОГРЕСС'; }
+    function playSound() {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.frequency.value = 880; // Частота (A5)
+        osc.type = 'sine';
+        gain.gain.value = 0.3; // Громкость
+
+        osc.start();
+        setTimeout(() => {
+            osc.stop();
+            ctx.close();
+        }, 200); // Длительность 200мс
+    } catch (e) {
+        console.log('Sound play failed:', e);
+    }
+    }
+
+    // === МОДАЛКА ОЦЕНКИ ===
+    function showFocusModal() {
+        document.getElementById('focus-modal').classList.remove('hidden');
+        document.querySelectorAll('.focus-btn').forEach(btn => btn.classList.remove('selected'));
+        document.getElementById('save-focus-btn').disabled = true;
+    }
+    function closeFocusModal() {
+        document.getElementById('focus-modal').classList.add('hidden');
+        pendingSessionData = null;
+    }
+    document.querySelectorAll('.focus-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.focus-btn').forEach(b => b.classList.remove('selected'));
+            this.classList.add('selected');
+            document.getElementById('save-focus-btn').disabled = false;
+        });
+    });
+    async function confirmFocusSave() {
+        const focusScore = document.querySelector('.focus-btn.selected')?.dataset.value;
+        if (!focusScore || !pendingSessionData) return;
+        try {
+            await apiRequest('/sessions/', 'POST', { ...pendingSessionData, focus_score: parseInt(focusScore) });
+            showFlash(`✅ Сессия сохранена! Фокус: ${focusScore}/10`);
+            loadSessions(); loadTodayStats(); loadGoals();
+        } catch (e) { showFlash('⚠ Не удалось сохранить: ' + e.message, 'error'); }
+        finally { closeFocusModal(); resetTimer(); }
+    }
+
+    async function saveSession() {
+        const elapsedSeconds = totalSeconds - secondsLeft;
+        if (elapsedSeconds <= 0) return;
+        const now = new Date();
+        const startTime = sessionStartTime || new Date(now.getTime() - elapsedSeconds * 1000);
+        const endTime = new Date(startTime.getTime() + elapsedSeconds * 1000);
+        pendingSessionData = { start_time: startTime.toISOString(), end_time: endTime.toISOString(), note: document.getElementById('note').value || null, goal: document.getElementById('goal').value || null, tag_ids: [] };
+        showFocusModal();
+        if (soundEnabled) playSound();
+    }
+
+    async function saveSessionManual() {
+        if (!sessionStartTime) { showFlash('⚠ Сначала запустите таймер!', 'error'); return; }
+        pauseTimer();
+        const elapsedSeconds = totalSeconds - secondsLeft;
+        const now = new Date();
+        const startTime = sessionStartTime;
+        const endTime = new Date(startTime.getTime() + elapsedSeconds * 1000);
+        pendingSessionData = { start_time: startTime.toISOString(), end_time: endTime.toISOString(), note: document.getElementById('note').value || null, goal: document.getElementById('goal').value || null, tag_ids: [] };
+        showFocusModal();
+    }
+
+    async function loadSessions() {
+        const container = document.getElementById('sessions-container');
+        try {
+            const sessions = await apiRequest('/sessions/?limit=20');
+            if (!sessions.length) { container.innerHTML = '<p class="text-center" style="color:#888">Пока нет сессий. Начни учиться! 🚀</p>'; return; }
+            container.innerHTML = sessions.map(s => `
+                <div class="session-item">
+                    <div class="session-header"><span class="session-title">${s.goal || '📚 Без цели'}</span><span class="session-meta">${new Date(s.start_time).toLocaleDateString()}</span></div>
+                    <div class="session-meta">${new Date(s.start_time).toLocaleTimeString()} — ${new Date(s.end_time).toLocaleTimeString()}</div>
+                    <div class="session-stats"><span class="stat">⏱ ${Math.round(s.duration_minutes)} мин</span><span class="stat">🎯 ${s.focus_score}/10</span></div>
+                    ${s.note ? `<div style="margin-top:6px;color:#888">📝 ${s.note}</div>` : ''}
+                </div>`).join('');
+        } catch (e) { container.innerHTML = `<p style="color:var(--danger)">Ошибка: ${e.message}</p>`; }
+    }
+
+    async function loadTodayStats() {
+        try {
+            const sessions = await apiRequest('/sessions/?limit=100');
+            const today = new Date().toDateString();
+            const todaySessions = sessions.filter(s => new Date(s.start_time).toDateString() === today);
+            const totalMinutes = Math.round(todaySessions.reduce((sum, s) => sum + s.duration_minutes, 0));
+            const avgFocus = todaySessions.length ? Math.round(todaySessions.reduce((sum, s) => sum + s.focus_score, 0) / todaySessions.length) : '-';
+            document.getElementById('stat-sessions').textContent = todaySessions.length;
+            document.getElementById('stat-minutes').textContent = totalMinutes;
+            document.getElementById('stat-focus').textContent = avgFocus;
+        } catch (e) { console.error(e); }
+    }
+
+    async function clearHistory() {
+        if (!confirm('⚠️ Удалить всю историю сессий? Это действие нельзя отменить.')) return;
+        try {
+            await apiRequest('/sessions/clear', 'POST');
+            showFlash('🗑 История очищена');
+            loadSessions(); loadTodayStats();
+        } catch (e) { showFlash('⚠ Ошибка очистки: ' + e.message, 'error'); }
+    }
+
+    async function loadGoals() {
+        try {
+            const goals = await apiRequest('/goals/');
+            const container = document.getElementById('goals-list');
+            if (!goals.length) { container.innerHTML = '<p style="color:#888; text-align:center;">Нет активных целей. Создай первую! 🚀</p>'; return; }
+            container.innerHTML = goals.map(g => `
+                <div class="goal-item">
+                    <div class="goal-header"><span class="goal-title">${g.title}</span><button class="goal-toggle" onclick="toggleGoal(${g.id})" title="Завершить/Возобновить">${g.is_active ? '⏸' : '▶'}</button></div>
+                    <div class="progress-track"><div class="progress-fill-goal" style="width: ${g.progress_percent}%"></div></div>
+                    <div class="goal-meta"><span> ${g.achieved_minutes} / ${g.target_minutes} мин (${g.progress_percent}%)</span>${g.deadline ? `<span>⏳ До ${new Date(g.deadline).toLocaleDateString()}</span>` : ''}</div>
+                </div>`).join('');
+        } catch (e) { console.error('Goals load error:', e); }
+    }
+    async function addGoal() {
+        const title = document.getElementById('goal-title').value.trim();
+        const minutes = parseInt(document.getElementById('goal-minutes').value);
+        if (!title || !minutes || minutes <= 0) { alert('Заполни название и минуты!'); return; }
+        try {
+            await apiRequest('/goals/', 'POST', { title, target_minutes: minutes });
+            document.getElementById('goal-title').value = '';
+            document.getElementById('goal-minutes').value = '';
+            loadGoals();
+        } catch (e) { alert('Ошибка: ' + e.message); }
+    }
+    async function toggleGoal(id) {
+        try { await apiRequest(`/goals/${id}/toggle`, 'POST'); loadGoals(); } catch (e) { alert('Ошибка: ' + e.message); }
+    }
+
+    function toggleTheme() {
+        currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', currentTheme);
+        localStorage.setItem('theme', currentTheme);
+        updateThemeButton();
+    }
+    function updateThemeButton() {
+        const btn = document.getElementById('theme-toggle');
+        btn.textContent = currentTheme === 'dark' ? '🌙 Тёмная' : '☀️ Светлая';
+    }
+    function toggleSound() {
+        soundEnabled = !soundEnabled;
+        localStorage.setItem('sound_enabled', soundEnabled);
+        updateSoundButton();
+    }
+    function updateSoundButton() {
+        const btn = document.getElementById('sound-toggle');
+        btn.textContent = soundEnabled ? '🔊 Звук вкл' : '🔇 Звук выкл';
+        btn.classList.toggle('active', soundEnabled);
+    }
+</script>
+</body>
+</html>

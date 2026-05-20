@@ -1,0 +1,13 @@
+version: '3.8'
+services:
+  progress-app:
+    build: .
+    container_name: progress-app
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - DATABASE_URL=sqlite:///./data/progress.db
+      - SECRET_KEY=super-secret-key-change-in-prod
+    restart: unless-stopped
